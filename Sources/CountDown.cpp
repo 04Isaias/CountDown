@@ -16,27 +16,9 @@
 // ----------------------------------------------------------------------------
 // headers
 // ----------------------------------------------------------------------------
-
-// For compilers that support precompilation, includes "wx/wx.h".
-#include <wx/wxprec.h>
+#include <CountDown.h>
 
 
-
-// for all others, include the necessary headers (this file is usually all you
-// need because it includes almost all "standard" wxWidgets headers)
-#ifndef WX_PRECOMP
-    #include <wx/wx.h>
-#endif
-
-// ----------------------------------------------------------------------------
-// resources
-// ----------------------------------------------------------------------------
-
-// the application icon (under Windows it is in resources and even
-// though we could still include the XPM here it would be unused)
-#ifndef wxHAS_IMAGES_IN_RESOURCES
-    #include "../sample.xpm"
-#endif
 
 // ----------------------------------------------------------------------------
 // private classes
@@ -55,23 +37,7 @@ public:
     virtual bool OnInit() wxOVERRIDE;
 };
 
-// Define a new frame type: this is going to be our main frame
-class MyFrame : public wxFrame
-{
-public:
-    // ctor(s)
-    MyFrame(const wxString& title);
 
-    // event handlers (these functions should _not_ be virtual)
-    void OnQuit(wxCommandEvent& event);
-    void OnAbout(wxCommandEvent& event);
-
-    // binding events to event handler functions
-
-
-private:
-
-};
 
 // ----------------------------------------------------------------------------
 // constants
@@ -120,10 +86,8 @@ bool MyApp::OnInit()
 
 // frame constructor
 MyFrame::MyFrame(const wxString& title)
-       : wxFrame(NULL, wxID_ANY, title)
+       : wxFrame(nullptr, wxID_ANY, title)
 {
-    // set the frame icon
-    SetIcon(wxICON(sample));
 
 #if wxUSE_MENUBAR
     // create a menu bar
@@ -158,19 +122,74 @@ MyFrame::MyFrame(const wxString& title)
     CreateStatusBar(2);
     SetStatusText("Welcome to CountDown!");
 #endif // wxUSE_STATUSBAR
+    //setting defaults
+    uiObj = STARTDATEBUTTON;
+    startDate = wxDateTime::Today();
+    countDownToDate = wxDateTime::Today();
+
+
+    // set the frame icon
+    SetIcon(wxICON(sample));
+
+    //initial MyFrame Size
+    SetClientSize(1000,600);
+
+    //top parent panel for sizers.
+    wxPanel* parentPanel = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    parentPanel->SetBackgroundColour(wxColor(100,100,200));
+
+    //parent Sizer sizer holds dateButtonSizer and progressbar
+    wxBoxSizer* dateCalSizer = new wxBoxSizer(wxHORIZONTAL);
+    wxBoxSizer* barAndButtonSizer = new wxBoxSizer(wxVERTICAL);
+
+    wxGridSizer* dateButtonSizer = new wxGridSizer(2, 2, wxSize(0,0));
+
+
+    // Buttons, button bindings, and static Text
+    startDateButton = new wxButton(parentPanel, wxID_OK, wxT("Start Date: "));
+    startDateButton->Bind(wxEVT_BUTTON, &MyFrame::OnStartDateButtonClick, this);
+    countDownToButton = new wxButton(parentPanel, wxID_OK, wxT("Count Down to: "));
+    countDownToButton->Bind(wxEVT_BUTTON, &MyFrame::OnCountDowntoButtonClick, this);
+    startDateStaticText = new wxStaticText(parentPanel, wxID_OK, wxDateTime::Today().FormatDate());
+    countDownToStaticText = new wxStaticText(parentPanel, wxID_OK, wxT("Select Date"));
+    remainingDaysStaticText = new wxStaticText(parentPanel, wxID_OK, wxT("Remaining Days"));
+
+    //progress bar and Binding
+    countDownGauge = new wxGauge(parentPanel, wxID_OK, 0, wxDefaultPosition, wxDefaultSize, wxCENTER);
+
+    //calendar
+    wxCalendarCtrl* m_calendar = new wxCalendarCtrl(parentPanel,wxID_OK,
+    		wxDefaultDateTime,wxDefaultPosition,wxDefaultSize,wxCAL_SHOW_HOLIDAYS| wxBORDER_THEME);
+    m_calendar->Bind(wxEVT_CALENDAR_SEL_CHANGED, &MyFrame::OnCalendarChange, this);
+
+    //all buttons and labels go in dateButtonSizer
+    dateButtonSizer->Add(startDateButton, 1, wxALIGN_LEFT|wxALL, 5);
+    dateButtonSizer->Add(startDateStaticText, 1, wxALIGN_LEFT|wxBOTTOM|wxTOP|wxRIGHT, 5);
+    dateButtonSizer->Add(countDownToButton, 1, wxALIGN_LEFT|wxBOTTOM|wxLEFT|wxRIGHT, 5);
+    dateButtonSizer->Add(countDownToStaticText, 1, wxALIGN_LEFT|wxBOTTOM|wxRIGHT, 5);
+
+    //remainingDaysStaticText, progress bar (countDown) and dateButtonSizer go into bar and Button Sizer
+    barAndButtonSizer->Add(dateButtonSizer, 1, wxALIGN_CENTER|wxALL, 5);
+    barAndButtonSizer->Add(countDownGauge,0, wxALIGN_CENTER|wxBottom|wxRIGHT|wxLEFT, 5);
+    barAndButtonSizer->Add(remainingDaysStaticText,1,wxALIGN_CENTER|wxBottom|wxRIGHT|wxLEFT, 5);
+
+    //barAndButton Sizer and calendar go in dateCalSizer
+    dateCalSizer->Add(barAndButtonSizer, 0, wxALIGN_CENTER | wxALL, 5);
+    dateCalSizer->Add(m_calendar,0,wxFIXED_MINSIZE|wxTop|wxRIGHT|wxBOTTOM, 5);
+    parentPanel->SetSizer(dateCalSizer);
+    dateCalSizer->SetSizeHints(this);
+
 }
 
 
 // event handlers
 
-void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event))
-{
+void MyFrame::OnQuit(wxCommandEvent& WXUNUSED(event)){
     // true is to force the frame to close
     Close(true);
 }
 
-void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
-{
+void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event)){
     wxMessageBox(wxString::Format
                  (
                     "Welcome to %s!\n"
@@ -183,4 +202,54 @@ void MyFrame::OnAbout(wxCommandEvent& WXUNUSED(event))
                  "About CountDown",
                  wxOK | wxICON_INFORMATION,
                  this);
+}
+
+void MyFrame::OnCalendarChange(wxCalendarEvent& event){
+	wxString s;
+	s.Printf("%s", event.GetDate().FormatDate());
+
+	switch(uiObj){
+	case STARTDATEBUTTON:
+		startDateStaticText->SetLabel(s);
+		startDate = event.GetDate();
+		break;
+	case COUNTDOWNTOBUTTON:
+		countDownToStaticText->SetLabel(s);
+		countDownToDate = event.GetDate();
+		break;
+	default:
+		std::cout << "Error: unknown selected object!";
+		break;
+	}
+	CalculateCountDown();
+
+	event.Skip();
+}
+
+void MyFrame::OnStartDateButtonClick(wxCommandEvent& event){
+	uiObj = STARTDATEBUTTON;
+}
+
+void MyFrame::OnCountDowntoButtonClick(wxCommandEvent& event){
+	uiObj = COUNTDOWNTOBUTTON;
+}
+
+void MyFrame::CalculateCountDown(){
+	//subtract startDate from countDownToDate = Range
+	wxTimeSpan range = countDownToDate.Subtract(startDate);
+
+	//subtract startDate from currentDate = value
+	wxTimeSpan value = wxDateTime::Today().Subtract(startDate);
+
+	//remaining days = range - value
+	wxTimeSpan remDays = range;
+	remDays.Subtract(value);
+
+	countDownGauge->SetRange(range.GetDays());
+	countDownGauge->SetValue(value.GetDays());
+
+	wxString s;
+	s.Printf("There are %d Days remaining!", remDays.GetDays());
+	remainingDaysStaticText->SetLabel(s);
+
 }
